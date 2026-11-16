@@ -409,7 +409,7 @@ void setup() {
   inicializaPID(PIDMD,10,0.005,0.0,255,150);
   
   //inicializaPID(PIDYAW,4.0,0.0,0.4,40,150);
-  inicializaPID(PIDYAW,1.0,0.0,0.2,10,150);
+  inicializaPID(PIDYAW,2.0,0.0,0.2,15,150);
 
 
   instante = micros(); // Inicialización correcta para evitar saltos en dt
@@ -531,7 +531,7 @@ void loop() {
           cambiarleds(leds.Color(0,0,30));         
           //para=true;
           //estado--;            
-          inicializaPID(PIDYAW,1.0,0.0,0.2,10,150);                  
+          inicializaPID(PIDYAW,2.0,0.0,0.2,15,150);                  
           estado=0;
           anguloZ-=180.0;
           veldeseada=1.6;
