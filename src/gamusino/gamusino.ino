@@ -500,7 +500,7 @@ void loop() {
         estado++;          
       }
       
-   }else if((millis()-tiempo)>200){
+   }else if((millis()-tiempo)>700){
 
         //pwmmotor(canalMI1,canalMI2,0,0);  
         //pwmmotor(canalMD1,canalMD2,0,0);
