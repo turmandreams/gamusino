@@ -792,7 +792,7 @@ void pruebarecorredistancia(){
    // Serial.println(pwmMI);
 
    if(estado==0){
-      if(x>=(xfin-30)){
+      if(x>=(xfin-0.3)){
         frenazo();
         paramotores();
         veldeseada=0.0;
