@@ -1,4 +1,26 @@
 
+//IR
+
+
+int valorcon[4];
+int valorsin[4];
+
+#define pinIR_IA 36
+#define pinIR_DW 39
+#define pinIR_IW 34
+#define pinIR_DA 35
+
+#define pinIR_I 32
+#define pinIR_D 33
+
+
+
+//succion
+
+#define PIN_SUCCION   12  
+#define canalSuccion  4  // va a ser el canal 4 del pwm
+
+
 //ws2812
 
 #include <Adafruit_NeoPixel.h>
@@ -115,6 +137,10 @@ long tiempo=0;
 
 int estado=0;
 boolean para=false;
+boolean sigue=true;
+
+int menu=0;
+int opcion=0;
 
 
 void angulohaciaobjetivo() {
@@ -194,15 +220,20 @@ void pwmmotor(int canal1,int canal2,int pwm,int maximo) {
 }
 
 void frenazo() {
-  
+
+  digitalWrite(pinMI1,HIGH);digitalWrite(pinMI2,HIGH);
+  digitalWrite(pinMD1,HIGH);digitalWrite(pinMD2,HIGH);
   ledcWrite(0,255);ledcWrite(1,255);
   ledcWrite(2,255);ledcWrite(3,255);   
 
-
-  cambiarleds(leds.Color(30,0,0));
-
 }
 
+void paramotores() {
+  
+  ledcWrite(0,0);ledcWrite(1,0);
+  ledcWrite(2,0);ledcWrite(3,0);   
+
+}
 
 
 void inicializaPID(PID &pide,double kp,double ki,double kd,int maximo,int maximointegral){
@@ -212,6 +243,14 @@ void inicializaPID(PID &pide,double kp,double ki,double kd,int maximo,int maximo
   pide.integral=0.0;
   pide.errorant=0.0;  
   pide.instante=micros(); 
+  pide.maximo=maximo;   
+  pide.maximointegral=maximointegral;   
+}
+
+void modificaPID(PID &pide,double kp,double ki,double kd,int maximo,int maximointegral){
+  pide.kp=kp;
+  pide.ki=ki;
+  pide.kd=kd;
   pide.maximo=maximo;   
   pide.maximointegral=maximointegral;   
 }
@@ -254,7 +293,8 @@ void inicializamotores(){
   ledcSetup(canalMD2, PWM_FREQ, PWM_RESOLUTION);
   ledcAttachPin(pinMD2,canalMD2);
   
-  
+  ledcSetup(canalSuccion, PWM_FREQ, PWM_RESOLUTION);
+  ledcAttachPin(PIN_SUCCION,canalSuccion);
 
    
 }
@@ -385,26 +425,265 @@ void cambiarleds(uint32_t color) {
   leds.show();  
 }
 
-void setup() {
-  Serial.begin(115200);
-  while (!Serial);
+void resetleds() {
+  for(int i=0; i<NUM_LEDS; i++) {
+    leds.setPixelColor(i,leds.Color(0,0,0));
+  }  
+}
 
-  inicializaleds();
-  inicializamotores();    
-  inicializaencoders();
-  inicializaimu();
+void enciendeleds(boolean l4,boolean l3,boolean l2,boolean l1,uint32_t color){
 
-  cambiarleds(leds.Color(0,30,0));
-  Serial.println("Se va a realizar la calibración !!!");
-  delay(3000);
+     if(l1){ leds.setPixelColor(0,color); }else{ leds.setPixelColor(0,leds.Color(0,0,0)); }
+     if(l2){ leds.setPixelColor(1,color); }else{ leds.setPixelColor(1,leds.Color(0,0,0)); }
+     if(l3){ leds.setPixelColor(2,color); }else{ leds.setPixelColor(2,leds.Color(0,0,0)); }
+     if(l4){ leds.setPixelColor(3,color); }else{ leds.setPixelColor(3,leds.Color(0,0,0)); }
 
-  calibraimu();  
-  cambiarleds(leds.Color(0,0,30));
-  Serial.println("Calibración realizada !!!");
+     leds.show();
+}
+
+void apagaleds(){
+    resetleds();
+    leds.show();  
+}
+
+void parpadeoleds(boolean l4,boolean l3,boolean l2,boolean l1,uint32_t color){
+
+   apagaleds();delay(100);    
+   enciendeleds(l4,l3,l2,l1,leds.Color(0,0,20));delay(100); 
+   apagaleds();delay(100);    
+   enciendeleds(l4,l3,l2,l1,leds.Color(0,0,20));delay(100); 
+   apagaleds();delay(100);    
+     
+}
+
+void inicializaIR(){
+  
+    pinMode(pinIR_IA,INPUT);
+    pinMode(pinIR_DW,INPUT);
+    pinMode(pinIR_IW,INPUT);
+    pinMode(pinIR_DA,INPUT);
     
-  tiempo=millis();
+    pinMode(pinIR_I,OUTPUT);
+    pinMode(pinIR_D,OUTPUT);
+
+   
+
+}
+
+void pruebaencoders(){  //menu=0 opcion=0
+
+   parpadeoleds(0,0,0,1,leds.Color(0,0,20));  
+   
+   t=millis();
+    
+   while(millis()-t<10000){
+
+    resetleds();
+       
+    long contMI = encoderMI.getCount();
+    long difMI = contMI - contMIant;
+    contMIant=contMI;
+    
+    long contMD = encoderMD.getCount();
+    long difMD = contMD - contMDant;
+    contMDant=contMD;
+
+    if(difMD>400){
+        leds.setPixelColor(0,leds.Color(0,20,0));leds.show();
+    }else if(difMD<-400){
+        leds.setPixelColor(1,leds.Color(0,20,0));leds.show();
+    }
+
+    if(difMI>400){
+        leds.setPixelColor(3,leds.Color(0,20,0));leds.show();
+    }else if(difMI<-400){
+        leds.setPixelColor(2,leds.Color(0,20,0));leds.show();
+    }
+
+    
+    delay(100);
+    
+   }
+
+   parpadeoleds(0,0,0,1,leds.Color(0,0,20));
+   
+}
+
+
+void pruebagz(){  //menu=0 opcion=1
 
   
+   parpadeoleds(0,0,1,0,leds.Color(0,0,20));
+
+   cambiarleds(leds.Color(20,0,0));
+   delay(3000);
+   calibraimu(); 
+
+   cambiarleds(leds.Color(0,0,20));
+   delay(1000);
+
+      
+   tiempo=millis();
+
+   sigue=true;
+
+   anguloZ=0.0;
+   yawDeseado=0.0;
+
+   inicializaPID(PIDYAW,4.0,0.0,0.4,40,150); 
+    
+   while(sigue){
+
+      double ahora=micros();        
+      double dt=ahora-instante;
+        
+      if (dt >= 100) {   //se revisa cada 100 us, se revisa que los motores vayan a la velocidad que tienen que ir    
+          
+          instante=ahora;   
+         
+          actualizaanguloz(dt);
+          
+          int turn=calulaPID(PIDYAW,yawDeseado-anguloZ,ahora);
+                  
+          pwmmotor(canalMI1,canalMI2,turn,255);  
+          pwmmotor(canalMD1,canalMD2,-turn,255);
+          
+      
+      }
+
+      if((millis()-tiempo)>2000) {
+          yawDeseado+=90;
+          if(yawDeseado>360){
+            
+              sigue=false;
+          }
+          tiempo=millis();
+      }
+
+   }
+
+   resetleds();
+
+   parpadeoleds(0,0,1,0,leds.Color(0,0,20));
+   
+}
+
+
+void pruebamotores() {  //menu=0 opcion=2
+  
+   parpadeoleds(0,0,1,1,leds.Color(0,0,20));   
+   
+   cambiarleds(leds.Color(20,0,0));
+   delay(3000);
+
+   ledcWrite(0,0);ledcWrite(1,40);delay(1000);
+   ledcWrite(1,0);ledcWrite(0,40);delay(1000);
+   ledcWrite(0,0);
+   
+   ledcWrite(2,0);ledcWrite(3,40);delay(1000);
+   ledcWrite(3,0);ledcWrite(2,40);delay(1000);
+   
+   ledcWrite(2,0); 
+   
+   parpadeoleds(0,0,1,1,leds.Color(0,0,20));
+   
+}
+
+
+void calibrarimu(){  //menu=0 opcion=3
+
+  
+   parpadeoleds(0,1,0,0,leds.Color(0,0,20));  
+
+   cambiarleds(leds.Color(20,0,0));
+   delay(3000);
+   calibraimu(); 
+
+   cambiarleds(leds.Color(0,0,20));
+   delay(1000);
+
+   resetleds();
+   
+   parpadeoleds(0,1,0,0,leds.Color(0,0,20));
+   
+}
+
+
+void pruebasuccion(){  //menu=0 opcion=4
+
+   parpadeoleds(0,1,0,1,leds.Color(0,0,20));
+   
+   cambiarleds(leds.Color(20,0,0));
+   delay(3000);
+   
+   ledcWrite(4,60);
+   delay(5000);
+
+   ledcWrite(4,0);
+      
+   parpadeoleds(0,1,0,1,leds.Color(0,0,20));
+   
+   
+}
+
+void comprobarIR(){  //menu=0 opcion=5
+
+   parpadeoleds(0,1,1,0,leds.Color(0,0,20));
+
+   
+   t=millis();
+    
+   while(millis()-t<15000){
+
+      resetleds();leds.show();         
+      
+      digitalWrite(pinIR_I,LOW);
+      digitalWrite(pinIR_D,LOW);
+      delay(1);
+
+    
+      valorsin[0]=analogRead(pinIR_IA);
+      valorsin[1]=analogRead(pinIR_DW);
+      valorsin[2]=analogRead(pinIR_IW);
+      valorsin[3]=analogRead(pinIR_DA);
+
+    
+      digitalWrite(pinIR_I,HIGH);
+      digitalWrite(pinIR_D,HIGH);
+
+      delay(1);
+
+      valorcon[0]=analogRead(pinIR_IA);
+      valorcon[1]=analogRead(pinIR_DW);
+      valorcon[2]=analogRead(pinIR_IW);
+      valorcon[3]=analogRead(pinIR_DA);
+    
+      if((valorcon[0]-valorsin[0])>3500) { leds.setPixelColor(0,leds.Color(0,20,0));leds.show(); }
+      if((valorcon[1]-valorsin[1])>3500) { leds.setPixelColor(1,leds.Color(0,20,0));leds.show(); }
+      if((valorcon[2]-valorsin[2])>3500) { leds.setPixelColor(2,leds.Color(0,20,0));leds.show(); }
+      if((valorcon[3]-valorsin[3])>3500) { leds.setPixelColor(3,leds.Color(0,20,0));leds.show(); }
+      
+   }
+
+      
+   parpadeoleds(0,1,1,0,leds.Color(0,0,20));
+   
+   
+}
+
+void pruebarecorredistancia(){
+
+   parpadeoleds(0,1,1,1,leds.Color(0,0,20));
+
+   cambiarleds(leds.Color(20,0,0));
+   delay(3000);
+   calibraimu(); 
+
+   cambiarleds(leds.Color(0,0,20));
+   delay(1000);
+   
+   cambiarleds(leds.Color(20,0,0));  //se pone en rojo por que empieza a andar
+
   inicializaPID(PIDMI,10,0.005,0.0,255,150);
   inicializaPID(PIDMD,10,0.005,0.0,255,150);
   
@@ -412,22 +691,36 @@ void setup() {
   inicializaPID(PIDYAW,2.0,0.0,0.2,15,150);
 
 
-  instante = micros(); // Inicialización correcta para evitar saltos en dt
-
-  veldeseada=1.6;
-  aceleracion=3.0;
-  velinicial=0;
+  veldeseada=1.2;
+  aceleracion=20.0;
+  velinicial=0.0;
   yawDeseado=0.0;
+  anguloZ=0.0;
+  x=0.0;
+  y=0.0;
   xfin=1.5;
   yfin=0.0;
-  
-  t=millis();
-  
-}
+  estado=0;
 
-void loop() {
-    
-    double ahora=micros();        
+  sigue=true;
+
+  //le mandamos un pulso a los motores para provocar que se muevan
+  pwmmotor(canalMI1,canalMI2,100,255);  
+  pwmmotor(canalMD1,canalMD2,100,255);
+ 
+  t=millis();
+  tiempo=millis();
+
+  long contMI = encoderMI.getCount();contMIant = contMI;      
+  long contMD = encoderMD.getCount();contMDant = contMD;
+
+  velmediaMI=0.0;velmediaMD=0.0;
+
+  double ahora=micros();instante=ahora; 
+
+  while(sigue){
+
+    ahora=micros();        
     double dt=ahora-instante;
       
     if (dt >= 100) {   //se revisa cada 100 us, se revisa que los motores vayan a la velocidad que tienen que ir    
@@ -437,11 +730,11 @@ void loop() {
         //se realiza el control de velocidad MI y MD
         //se obtiene pwmMI y pwmMD
           
-        long contMI = encoderMI.getCount();
+        contMI = encoderMI.getCount();
         long numMI = contMI - contMIant;
         contMIant = contMI;
       
-        long contMD = encoderMD.getCount();
+        contMD = encoderMD.getCount();
         long numMD = contMD - contMDant;
         contMDant = contMD;
       
@@ -456,8 +749,8 @@ void loop() {
 
        // velpermitida=veldeseada;
 
-        int pwmbaseI=getPWMIzquierda(veldeseada);
-        int pwmbaseD=getPWMDerecha(veldeseada);
+        int pwmbaseI=getPWMIzquierda(velpermitida);
+        int pwmbaseD=getPWMDerecha(velpermitida);
     
         int pwmMI=pwmbaseI+(int)calulaPID(PIDMI,velpermitida-velmediaMI,ahora);
         int pwmMD=pwmbaseD+(int)calulaPID(PIDMD,velpermitida-velmediaMD,ahora);
@@ -494,10 +787,19 @@ void loop() {
    // Serial.println(pwmMI);
 
    if(estado==0){
-      if(x>=1.5){
+      if(x>=1.1){
         frenazo();
+        //paramotores();
         veldeseada=0.0;
-        estado++;          
+        estado++;   
+        cambiarleds(leds.Color(0,30,0));   //se ha pasado de la distancia       
+
+        modificaPID(PIDYAW,4.0,0.0,0.4,40,150);        
+        t=millis();
+        velinicial=0.0;
+        veldeseada=0.0;
+        yawDeseado=0.0;   
+          
       }
       
    }else if((millis()-tiempo)>700){
@@ -507,39 +809,15 @@ void loop() {
 
         //delay(2000);
 
-        estado++;
-
-        if(estado==2){  
-          inicializaPID(PIDYAW,4.0,0.0,0.4,40,150);        
-          t=millis();
-          velinicial=velpermitida;
-          veldeseada=0.0;         
-        }else if(estado==3){                            
-          velinicial=0.0;
-          veldeseada=0.0;
-          yawDeseado+=180;          
+        estado++;        
+        if(estado==2){                                      
+          yawDeseado+=180.0;          
         }else if(estado<10){
           velinicial=0.0;
           veldeseada=0.0;           
-        }else if(estado<20){
-          velinicial=0.0;
-          veldeseada=0.0; 
-          para=true;
-          cambiarleds(leds.Color(0,30,0));         
         }else{      
-          para=false;    
           cambiarleds(leds.Color(0,0,30));         
-          //para=true;
-          //estado--;            
-          inicializaPID(PIDYAW,2.0,0.0,0.2,15,150);                  
-          estado=0;
-          anguloZ-=180.0;
-          veldeseada=1.6;
-          velinicial=0;
-          yawDeseado=0.0;
-          x=0.0;y=0.0;
-          xfin=1.5;yfin=0.0;
-          t=millis();          
+          sigue=false;          
         }
 
         Serial.print("Contador MI : ");
@@ -551,7 +829,6 @@ void loop() {
         Serial.println(x);
         Serial.print("Y : ");
         Serial.println(y);
-
 
         /*
         Serial.print("Velocidad MI : ");
@@ -570,6 +847,105 @@ void loop() {
         
     }
 
+    
+  }  
+
+  parpadeoleds(0,1,1,1,leds.Color(0,0,20));
+  
+}
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial);
+
+  inicializaleds();
+  inicializamotores();    
+  inicializaencoders();
+  inicializaimu();
+  inicializaIR();
+
+  cambiarleds(leds.Color(20,0,0));delay(300);
+  cambiarleds(leds.Color(0,20,0));delay(300);
+  cambiarleds(leds.Color(0,0,20));delay(300);
+
    
+  tiempo=millis();
+   
+
+ 
+  
+}
+
+void loop() {    
+
+    boolean entra=false;
+     
+    long contMI = encoderMI.getCount();
+    long difMI = contMI - contMIant;
+    
+    long contMD = encoderMD.getCount();
+    long difMD = contMD - contMDant;
+    
+    Serial.print("Dif MI : ");Serial.println(difMI);
+    Serial.print("Dif MD : ");Serial.println(difMD);
+
+    if(difMD>1000) { 
+        if(menu==0){
+          opcion++; if(opcion>6){ opcion=0; }
+        }
+    }else if(difMD<-1000) { 
+        if(menu==0){
+          opcion--; if(opcion<0){ opcion=6; }
+        }
+    }
+
+    if(difMI>1000) { 
+        entra=true;
+    }else if(difMD<-1000) { 
+      /*
+        if(menu==0){ menu=1;}
+        else { menu=0; }
+      */
+    }
+
+    
+    resetleds();
+
+    if(menu==0){  ///Menu para ejecutar pruebas
+        uint32_t color=leds.Color(0,0,20);
+              
+        if(opcion==0){    ///Prueba de encoders
+
+            enciendeleds(0,0,0,1,color);            
+            if(entra){ pruebaencoders(); }
+            
+        }else if(opcion==1){    ///Prueba de imu
+          
+            enciendeleds(0,0,1,0,color);                 
+            if(entra){ pruebagz(); }
+               
+        }else if(opcion==2){    ///Prueba de motores
+            enciendeleds(0,0,1,1,color);                    
+            leds.show();  
+            if(entra){ pruebamotores(); }        
+        }else if(opcion==3){    ///Calibrar IMU
+            enciendeleds(0,1,0,0,color);            
+            if(entra){ calibrarimu(); }          
+        }else if(opcion==4){    ///prueba succion
+            enciendeleds(0,1,0,1,color);            
+            if(entra){ pruebasuccion(); }          
+        }else if(opcion==5){    ///comprobar IR
+            enciendeleds(0,1,1,0,color);            
+            if(entra){ comprobarIR(); } 
+        }else if(opcion==6){    ///prueba correrdistancia
+            enciendeleds(0,1,1,1,color);            
+            if(entra){ pruebarecorredistancia(); }         
+        }          
+      
+     }
+
+    contMIant = encoderMI.getCount();
+    contMDant = encoderMD.getCount();
+    delay(200);
     
 }
