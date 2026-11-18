@@ -211,10 +211,14 @@ void pwmmotor(int canal1,int canal2,int pwm,int maximo) {
   
   pwm = constrain(pwm,-maximo, maximo);  
 
+  int min=30;
+
+  if(veldeseada==0.0){ min=0; }
+
   //el valor de 30 es por que en ese valor nos aseguramos que los dos motores se pueden mover
   
-  if (pwm < -30)      { ledcWrite(canal1,-pwm); ledcWrite(canal2, 0); }
-  else if (pwm > 30) { ledcWrite(canal1,0);ledcWrite(canal2,pwm); }
+  if (pwm < -min)      { ledcWrite(canal1,-pwm); ledcWrite(canal2, 0); }
+  else if (pwm > min) { ledcWrite(canal1,0);ledcWrite(canal2,pwm); }
   else              { ledcWrite(canal1,0);ledcWrite(canal2, 0); }   
       
 }
@@ -229,7 +233,8 @@ void frenazo() {
 }
 
 void paramotores() {
-  
+  digitalWrite(pinMI1,LOW);digitalWrite(pinMI2,LOW);
+  digitalWrite(pinMD1,LOW);digitalWrite(pinMD2,LOW);  
   ledcWrite(0,0);ledcWrite(1,0);
   ledcWrite(2,0);ledcWrite(3,0);   
 
@@ -787,9 +792,9 @@ void pruebarecorredistancia(){
    // Serial.println(pwmMI);
 
    if(estado==0){
-      if(x>=1.1){
+      if(x>=(xfin-30)){
         frenazo();
-        //paramotores();
+        paramotores();
         veldeseada=0.0;
         estado++;   
         cambiarleds(leds.Color(0,30,0));   //se ha pasado de la distancia       
