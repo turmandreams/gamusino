@@ -111,6 +111,7 @@ double velmediaMI=0.0;
 double velmediaMD=0.0;
 double velmedia=0.0;
 
+
 struct PID {
   double kp = 0.0;
   double ki = 0.0;
@@ -143,6 +144,7 @@ long tiempo=0;
 int estado=0;
 boolean para=false;
 boolean sigue=true;
+int terminado=0;
 
 int menu=0;
 int opcion=0;
@@ -861,37 +863,45 @@ void pruebarecorredistancia(){
         //se frena cuando lo que falta hasta xfin es lo que recorre al frenar a esta velocidad
         double vmedia=(velmediaMI+velmediaMD)/2.0;
         if(x+distanciaFrenada(vmedia)>=xfin){
-          
-          frenazo();
-          veldeseada=0.0;
-          estado++;   
-          cambiarleds(leds.Color(0,30,0));   //se ha pasado de la distancia       
-  
-          tiempo=millis();  
-          t=millis();
-          velinicial=0.0;
-          veldeseada=0.0;
-          yawDeseado=0.0;   
-            
+            frenazo();
+            veldeseada=0.0;
+            estado++;   
+            cambiarleds(leds.Color(0,30,0));   //se ha pasado de la distancia       
+    
+            tiempo=millis();  
+            t=millis();
+            velinicial=0.0;
+            veldeseada=0.0;
+            yawDeseado=0.0;
+            terminado=0;   
+                      
         }
         
      }else if(estado==1){
   
         if(abs(yawDeseado-anguloZ)<0.5){    
           if(abs(velmedia)<0.2){  
-            yawDeseado+=180.0;
-            estado++;          
-          }
-        }
+            terminado++;
+            if(terminado>30){            
+              yawDeseado+=180.0;
+              estado++; 
+              terminado=0; 
+            }        
+          }else{ terminado=0;}
+        }else{ terminado=0;}
                   
      }else if(estado==2){
         if(abs(yawDeseado-anguloZ)<0.5){    
-          if(abs(velmedia)<0.2){  
-            estado++; 
-            cambiarleds(leds.Color(0,0,30));         
-            sigue=false;           
-          }
-        }
+          if(abs(velmedia)<0.2){
+            terminado++;
+            if(terminado>30){ 
+              frenazo();  
+              estado++; 
+              cambiarleds(leds.Color(0,0,30));         
+              sigue=false;  
+            }         
+           }else{ terminado=0;}
+        }else{ terminado=0;}
                   
      }   
    
@@ -995,7 +1005,7 @@ void loop() {
             if(entra){ comprobarIR(); } 
         }else if(opcion==6){    ///prueba correrdistancia
             enciendeleds(0,1,1,1,color);            
-            if(entra){ pruebarecorredistancia();pruebarecorredistancia(); }         
+            if(entra){ pruebarecorredistancia(); }         
         }          
       
      }
