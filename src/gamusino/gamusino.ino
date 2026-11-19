@@ -1,5 +1,5 @@
 
-boolean simulador=true;
+boolean simulador=false;
 
 
 //IR
@@ -109,6 +109,7 @@ long t=0.0;
 
 double velmediaMI=0.0;
 double velmediaMD=0.0;
+double velmedia=0.0;
 
 struct PID {
   double kp = 0.0;
@@ -215,7 +216,7 @@ int getPWMDerecha(float velocidad) {
 // Distancia (m) que recorre el robot desde que se activa el freno (frenazo) hasta que se para, segun la velocidad (m/s)
 // que llevaba. Medida en el simulador: con el freno puesto, la distancia sale casi lineal con la velocidad (~0.1 s).
 // Rehacer esta tabla con el robot real (frenar a varias velocidades y medir lo que avanza).
-const int PWMMINGIRO=28;   // PWM minimo con el que se mueven las dos ruedas a la vez al girar parado
+const int PWMMINGIRO=32;   // PWM minimo con el que se mueven las dos ruedas a la vez al girar parado
 const int NUM_PUNTOS_FRENADA = 10;
 const float velTablaFrenada[NUM_PUNTOS_FRENADA]  = {0.0, 0.378, 0.58, 0.90, 1.14, 1.265, 1.37, 1.468, 1.57, 1.63};
 const float distTablaFrenada[NUM_PUNTOS_FRENADA] = {0.0, 0.031, 0.055, 0.090, 0.118, 0.130, 0.140, 0.152, 0.165, 0.169};
@@ -737,11 +738,9 @@ void pruebarecorredistancia(){
     
        cambiarleds(leds.Color(20,0,0));
        delay(3000);
-   }
-   
-   calibraimu(); 
-       
-   if(!simulador){        
+          
+       calibraimu(); 
+     
        cambiarleds(leds.Color(0,0,20));
        delay(1000);
        
@@ -754,7 +753,7 @@ void pruebarecorredistancia(){
   
   //inicializaPID(PIDYAW,4.0,0.0,0.4,40,150);
   //inicializaPID(PIDYAW,2.0,0.0,0.2,15,150);
-  inicializaPID(PIDYAW,8.0,1.0,0.8,40,150); 
+  inicializaPID(PIDYAW,8.0,1.0,0.3,40,150); 
 
   veldeseada=1.6;
   aceleracion=50.0;
@@ -779,7 +778,7 @@ void pruebarecorredistancia(){
   long contMI = encoderMI.getCount();contMIant = contMI;      
   long contMD = encoderMD.getCount();contMDant = contMD;
 
-  velmediaMI=0.0;velmediaMD=0.0;
+  velmediaMI=0.0;velmediaMD=0.0;velmedia=0.0;
 
   double ahora=micros();instante=ahora; 
 
@@ -809,6 +808,8 @@ void pruebarecorredistancia(){
         velmediaMI=(velmediaMI*0.8)+(velMI*0.2);
         velmediaMD=(velmediaMD*0.8)+(velMD*0.2);
 
+        velmedia=(velmediaMI+velmediaMD)/2;
+
         velpermitida=velinicial+((t*aceleracion)/1000);
         if(velpermitida>veldeseada) { velpermitida=veldeseada; }
 
@@ -835,20 +836,13 @@ void pruebarecorredistancia(){
         
         int turn=calulaPIDderivada(PIDYAW,yawDeseado-anguloZ,ahora,gzgrados);   //d(error)/dt = +gz
 
-        if(veldeseada==0.0){
-          //girando parado: por debajo de ~26 de PWM las dos ruedas no se mueven a la vez (la izquierda arranca a 23, la derecha a 24)
-          //y el robot gira sobre una sola rueda o se queda parado. O las dos con un minimo, o ninguna (ya ha llegado)
-          if(fabs(yawDeseado-anguloZ)<0.3){ turn=0; }
+        if(veldeseada==0.0){          
+          if(fabs(yawDeseado-anguloZ)<0.1){ turn=0; }
           else if(turn>0 && turn<PWMMINGIRO){ turn=PWMMINGIRO; }
           else if(turn<0 && turn>-PWMMINGIRO){ turn=-PWMMINGIRO; }
         }
 
-        
-        if(estado==1){
-          //recien parado: se mantiene el freno (las dos entradas de cada motor a 1) hasta que se pare del todo
-          ledcWrite(0,255);ledcWrite(1,255);
-          ledcWrite(2,255);ledcWrite(3,255);
-        }else if(!para){
+        if(!para){
           pwmmotor(canalMI1,canalMI2,pwmMI+turn,255);  
           pwmmotor(canalMD1,canalMD2,pwmMD-turn,255);
         }else{
@@ -861,72 +855,47 @@ void pruebarecorredistancia(){
     }
     
 
-   // Serial.println(pwmMI);
-
-   if(estado==0){
-      //se frena cuando lo que falta hasta xfin es lo que recorre al frenar a esta velocidad
-      double vmedia=(velmediaMI+velmediaMD)/2.0;
-      if(x+distanciaFrenada(vmedia)>=xfin){
-        
-        frenazo();
-        veldeseada=0.0;
-        estado++;   
-        cambiarleds(leds.Color(0,30,0));   //se ha pasado de la distancia       
-
-        tiempo=millis();  
-        t=millis();
-        velinicial=0.0;
-        veldeseada=0.0;
-        yawDeseado=0.0;   
+     // Serial.println(pwmMI);
+  
+     if(estado==0){
+        //se frena cuando lo que falta hasta xfin es lo que recorre al frenar a esta velocidad
+        double vmedia=(velmediaMI+velmediaMD)/2.0;
+        if(x+distanciaFrenada(vmedia)>=xfin){
           
-      }
-      
-   }else if((millis()-tiempo)>700){
-
-        //pwmmotor(canalMI1,canalMI2,0,0);  
-        //pwmmotor(canalMD1,canalMD2,0,0);
-
-        //delay(2000);
-
-        estado++;        
-        if(estado==2){                                                
-          yawDeseado+=180.0;          
-        }else if(estado<5){
+          frenazo();
+          veldeseada=0.0;
+          estado++;   
+          cambiarleds(leds.Color(0,30,0));   //se ha pasado de la distancia       
+  
+          tiempo=millis();  
+          t=millis();
           velinicial=0.0;
-          veldeseada=0.0;           
-        }else{      
-          cambiarleds(leds.Color(0,0,30));         
-          sigue=false;          
+          veldeseada=0.0;
+          yawDeseado=0.0;   
+            
         }
-
-        Serial.print("Contador MI : ");
-        Serial.println(encoderMI.getCount());
-        Serial.print("Contador MD : ");
-        Serial.println(encoderMD.getCount());
-          
-        Serial.print("X : ");
-        Serial.println(x);
-        Serial.print("Y : ");
-        Serial.println(y);
-
-        /*
-        Serial.print("Velocidad MI : ");
-        Serial.println(velmediaMI);
-        Serial.print("Velocidad MD : ");
-        Serial.println(velmediaMD);
-        */
         
-        Serial.print("\nYaw : ");
-        Serial.println(anguloZ);
-        Serial.print("\n");
-        
-                        
-        tiempo=millis();
-
-        
-    }
-
-    
+     }else if(estado==1){
+  
+        if(abs(yawDeseado-anguloZ)<0.5){    
+          if(abs(velmedia)<0.2){  
+            yawDeseado+=180.0;
+            estado++;          
+          }
+        }
+                  
+     }else if(estado==2){
+        if(abs(yawDeseado-anguloZ)<0.5){    
+          if(abs(velmedia)<0.2){  
+            estado++; 
+            cambiarleds(leds.Color(0,0,30));         
+            sigue=false;           
+          }
+        }
+                  
+     }   
+   
+     
   }  
 
   paramotores();
@@ -954,7 +923,7 @@ void setup() {
   tiempo=millis();
    
 
- 
+  if(simulador) { calibraimu();}
   
 }
 
@@ -1026,7 +995,7 @@ void loop() {
             if(entra){ comprobarIR(); } 
         }else if(opcion==6){    ///prueba correrdistancia
             enciendeleds(0,1,1,1,color);            
-            if(entra){ pruebarecorredistancia(); }         
+            if(entra){ pruebarecorredistancia();pruebarecorredistancia(); }         
         }          
       
      }
